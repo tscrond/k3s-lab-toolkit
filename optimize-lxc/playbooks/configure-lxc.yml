@@ -1,0 +1,46 @@
+---
+- name: Configure LXC containers on Proxmox
+  hosts: proxmox
+  become: true
+  tasks:
+    - name: Gather list of LXC containers
+      shell: lxc-ls --quiet
+      register: lxc_containers
+      changed_when: false
+
+    - name: Apply configuration to each LXC container
+      block:
+        - name: Add lxc.apparmor.profile
+          lineinfile:
+            path: "/etc/pve/lxc/{{ item }}.conf"
+            state: present
+            line: "lxc.apparmor.profile: unconfined"
+          with_items: "{{ lxc_containers.stdout_lines }}"
+
+        - name: Add lxc.cgroup.devices.allow
+          lineinfile:
+            path: "/etc/pve/lxc/{{ item }}.conf"
+            state: present
+            line: "lxc.cgroup.devices.allow: a"
+          with_items: "{{ lxc_containers.stdout_lines }}"
+
+        - name: Add lxc.cap.drop
+          lineinfile:
+            path: "/etc/pve/lxc/{{ item }}.conf"
+            state: present
+            line: "lxc.cap.drop:"
+          with_items: "{{ lxc_containers.stdout_lines }}"
+
+        - name: Add lxc.mount.auto
+          lineinfile:
+            path: "/etc/pve/lxc/{{ item }}.conf"
+            state: present
+            line: 'lxc.mount.auto: "proc:rw sys:rw"'
+          with_items: "{{ lxc_containers.stdout_lines }}"
+
+        - name: Restart LXC container to apply changes
+          shell: |
+            pct stop {{ item }}
+            pct start {{ item }}
+          with_items: "{{ lxc_containers.stdout_lines }}"
+      when: lxc_containers.stdout_lines | length > 0

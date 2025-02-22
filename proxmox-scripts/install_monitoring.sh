@@ -1,66 +1,11 @@
 #!/bin/bash
 
-set -euo pipefail
+set -euxo pipefail
 
 # Define versions (latest stable)
 PROMETHEUS_VERSION="2.50.0"
 GRAFANA_VERSION="10.3.2"
 NODE_EXPORTER_VERSION="1.8.1"
-DASHBOARDS_DIR=""
-
-create_datasource() {
-    sudo tee /etc/grafana/provisioning/datasources/datasources.yaml <<EOF
-apiVersion: 1
-
-datasources:
-  - name: Prometheus
-    type: prometheus
-    access: proxy
-    orgId: 1
-    url: http://localhost:9090
-    jsonData:
-      prometheusVersion: '${PROMETHEUS_VERSION}' 
-      tlsAuth: false
-    version: 1
-    editable: true
-EOF
-
-}
-
-
-create_dashboards (){
-    sudo tee /etc/grafana/provisioning/dashboards/dashboards.yaml <<EOF
-apiVersion: 1
-
-providers:
-  - name: 'Default Dashboards'
-    orgId: 1
-    folder: ''
-    type: file
-    disableDeletion: true
-    updateIntervalSeconds: 10
-    options:
-      path: /var/lib/grafana/dashboards
-EOF
-
-}
-while [[ $# -gt 0 ]]; do
-    case $1 in
-        --dashboards-dir)
-        DASHBOARDS_DIR="$2"
-        shift 2
-        ;;
-        --verbose)
-        set -x
-        shift
-        ;;
-    esac
-done
-
-if [[ "$DASHBOARDS_DIR" == "" ]]; then
-    echo "please set the --dashboards-dir flag"
-    exit 1
-fi
 
 # Install Prometheus
 echo "Installing Prometheus..."
@@ -124,20 +69,6 @@ if ! command -v grafana-server >/dev/null 2>&1; then
 
     # Install Grafana
     sudo apt-get install -y grafana
-    
-    sudo mkdir -p /var/lib/grafana/dashboards
-    sudo chown -R grafana:grafana /var/lib/grafana/dashboards
-
-    sudo cp -r $DASHBOARDS_DIR/* /var/lib/grafana/dashboards
-    
-    sudo mkdir -p /etc/grafana/provisioning/dashboards/
-    sudo mkdir -p /etc/grafana/provisioning/datasources/
-
-    sudo touch /etc/grafana/provisioning/dashboards/dashboards.yaml
-    sudo touch /etc/grafana/provisioning/datasources/datasources.yaml
-
-    create_dashboards
-    create_datasource
 
     # Start Grafana service
     sudo systemctl start grafana-server
@@ -200,7 +131,7 @@ else
     sudo systemctl restart prometheus
 fi
 
-echo "Steps after installation:"
+echo "To load default Grafana dashboards, follow these steps:"
 echo "1. Open Grafana at http://<your_server_ip>:3000 (default login is admin/admin)"
-echo "2. Your dashboards should be available in /dashboards, good luck!"
-
+echo "2. Add Prometheus as a data source: http://localhost:9090"
+echo "3. Import Grafana dashboards (e.g., Node Exporter Full ID: 1860)."
